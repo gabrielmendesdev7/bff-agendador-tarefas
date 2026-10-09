@@ -10,6 +10,7 @@ import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDateTime;
+import java.time.ZoneId;
 import java.util.List;
 
 @Service
@@ -32,11 +33,31 @@ public class CronService {
         String token = login(gerarLoginRequest());
         log.info("Iniciada a busca de tarefas");
 
-        LocalDateTime horaAtual = LocalDateTime.now();
-        LocalDateTime horaFutura = LocalDateTime.now().plusHours(1);
+        ZoneId localZone = ZoneId.of("America/Sao_Paulo");
+        ZoneId utcZone = ZoneId.of("UTC");
+
+        LocalDateTime horaAtualLocal = LocalDateTime.now(localZone)
+                .withHour(0)
+                .withMinute(0)
+                .withSecond(0)
+                .withNano(0);
+
+        LocalDateTime horaFuturaLocal = horaAtualLocal.plusDays(1).withNano(0);
+
+        LocalDateTime horaAtualDb = horaAtualLocal
+                .atZone(localZone)
+                .withZoneSameInstant(utcZone)
+                .toLocalDateTime()
+                .withNano(0);
+
+        LocalDateTime horaFuturaDb = horaFuturaLocal
+                .atZone(localZone)
+                .withZoneSameInstant(utcZone)
+                .toLocalDateTime()
+                .withNano(0);
 
         List<TarefasResponse> listaTarefas = tarefasService
-                .buscaTarefasAgendadasPorPeriodo(horaAtual, horaFutura, token);
+                .buscaTarefasAgendadasPorPeriodo(horaAtualDb, horaFuturaDb, token);
         log.info("Tarefas encontradas " + listaTarefas);
 
         listaTarefas.forEach(tarefa -> {

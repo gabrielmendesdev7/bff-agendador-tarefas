@@ -8,7 +8,9 @@ import com.javanauta.bffagendadortarefas.busines.dto.request.UsuarioUpdateReques
 import com.javanauta.bffagendadortarefas.busines.dto.response.EnderecoResponse;
 import com.javanauta.bffagendadortarefas.busines.dto.response.TelefoneResponse;
 import com.javanauta.bffagendadortarefas.busines.dto.response.UsuarioResponse;
+import com.javanauta.bffagendadortarefas.busines.dto.response.ViaCepResponse;
 import org.springframework.cloud.openfeign.FeignClient;
+import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -56,5 +58,8 @@ public interface UsuarioClient {
     @PostMapping("/telefone")
     TelefoneResponse cadastraTelefone(@RequestBody TelefoneRequest request,
                                       @RequestHeader("Authorization") String token);
+
+    @GetMapping("/endereco/{cep}")
+    ViaCepResponse buscarEnderecoPorCep(@PathVariable String cep);
 
 }

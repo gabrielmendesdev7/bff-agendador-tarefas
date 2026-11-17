@@ -1,0 +1,116 @@
+services:
+  postgres:
+    image: postgres:latest
+    container_name: postgres
+    restart: no
+    environment:
+      POSTGRES_USER: admin
+      POSTGRES_PASSWORD: admin
+      POSTGRES_DB: db_usuario
+    ports:
+      - "5433:5432"
+    # Garante que o Docker saiba quando o Postgres está de fato pronto para receber conexões
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U admin -d db_usuario"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  mongo:
+    image: mongo:latest
+    container_name: mongo
+    restart: no
+    ports:
+      - "27017:27017"
+    environment:
+      MONGO_INITDB_DATABASE: db_agendador
+    # Garante que o Docker saiba quando o MongoDB terminou de iniciar completamente
+    healthcheck:
+      test: echo 'db.runCommand("ping").ok' | mongosh localhost:27017/db_agendador --quiet
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  # CONTAINER DE TESTES DO SERVIÇO USUÁRIO
+  # Roda os testes usando o banco já de pé antes de tentar criar a imagem final
+  usuario-testes:
+    build:
+      context: ..\usuario
+      target: tester
+    container_name: usuario-testes
+    environment:
+      - SPRING_DATASOURCE_URL=jdbc:postgresql://postgres:5432/db_usuario
+      - SPRING_DATASOURCE_USERNAME=admin
+      - SPRING_DATASOURCE_PASSWORD=admin
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  usuario:
+    build:
+      context: ..\usuario
+      target: target
+    container_name: usuario
+    ports:
+      - "8080:8080"
+    environment:
+      - SPRING_DATASOURCE_URL=jdbc:postgresql://postgres:5432/db_usuario
+      - SPRING_DATASOURCE_USERNAME=admin
+      - SPRING_DATASOURCE_PASSWORD=admin
+    depends_on:
+      postgres:
+        condition: service_healthy
+      usuario-testes:
+        condition: service_completed_successfully # Só cria/sobe o app se os testes passarem
+
+  # CONTAINER DE TESTES DO AGENDADOR (Caso os testes dele também precisem do Mongo)
+  agendador-tarefas-testes:
+    build:
+      context: ..\agendador-tarefas
+      target: tester
+    container_name: agendador-tarefas-testes
+    environment:
+      - SPRING_DATA_MONGODB_URI=mongodb://mongo:27017/db_agendador
+    depends_on:
+      mongo:
+        condition: service_healthy
+
+  agendador-tarefas:
+    build:
+      context: ..\agendador-tarefas
+      target: target
+    container_name: agendador-tarefas
+    ports:
+      - "8081:8081"
+    environment:
+      - SPRING_DATA_MONGODB_URI=mongodb://mongo:27017/db_agendador
+    depends_on:
+      mongo:
+        condition: service_healthy
+      agendador-tarefas-testes:
+        condition: service_completed_successfully
+
+  bff-agendador-tarefas:
+    build: .
+    container_name: bff-agendador-tarefas
+    ports:
+      - "8083:8083"
+    environment:
+      - USUARIO_URL=usuario:8080/usuario  # Corrigido de ":" para "=" que estava quebrando a sintaxe
+      - AGENDADOR_TAREFAS_URL=agendador-tarefas:8081/tarefas
+      - NOTIFICACAO_URL=notificacao:8082/email
+    depends_on:
+      usuario:
+        condition: service_started
+      agendador-tarefas:
+        condition: service_started
+
+  notificacao:
+    build: ..\notificacao
+    container_name: notificacao
+    ports:
+      - "8084:8084"
+
+networks:
+  default:
+    driver: bridge

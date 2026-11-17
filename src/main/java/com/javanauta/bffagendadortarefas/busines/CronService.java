@@ -3,6 +3,7 @@ package com.javanauta.bffagendadortarefas.busines;
 import com.javanauta.bffagendadortarefas.busines.dto.request.LoginRequest;
 import com.javanauta.bffagendadortarefas.busines.dto.response.TarefasResponse;
 import com.javanauta.bffagendadortarefas.infrastructure.enums.StatusNotificacaoEnum;
+import com.javanauta.bffagendadortarefas.infrastructure.message.producer.EmailProducer;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
@@ -19,7 +20,7 @@ import java.util.List;
 public class CronService {
 
     private final TarefasService tarefasService;
-    private final EmailService emailService;
+    private final EmailProducer emailProducer;
     private final UsuarioService usuarioService;
 
     @Value("${usuario.email}")
@@ -33,37 +34,19 @@ public class CronService {
         String token = login(gerarLoginRequest());
         log.info("Iniciada a busca de tarefas");
 
-        ZoneId localZone = ZoneId.of("America/Sao_Paulo");
-        ZoneId utcZone = ZoneId.of("UTC");
+        LocalDateTime horaAtualLocal = LocalDateTime.now();
 
-        LocalDateTime horaAtualLocal = LocalDateTime.now(localZone)
-                .withHour(0)
-                .withMinute(0)
-                .withSecond(0)
-                .withNano(0);
-
-        LocalDateTime horaFuturaLocal = horaAtualLocal.plusDays(1).withNano(0);
-
-        LocalDateTime horaAtualDb = horaAtualLocal
-                .atZone(localZone)
-                .withZoneSameInstant(utcZone)
-                .toLocalDateTime()
-                .withNano(0);
-
-        LocalDateTime horaFuturaDb = horaFuturaLocal
-                .atZone(localZone)
-                .withZoneSameInstant(utcZone)
-                .toLocalDateTime()
-                .withNano(0);
+        LocalDateTime horaFuturaLocal = horaAtualLocal.plusDays(1);
 
         List<TarefasResponse> listaTarefas = tarefasService
-                .buscaTarefasAgendadasPorPeriodo(horaAtualDb, horaFuturaDb, token);
+                .buscaTarefasAgendadasPorPeriodo(horaAtualLocal, horaFuturaLocal, token);
+
         log.info("Tarefas encontradas " + listaTarefas);
 
         listaTarefas.forEach(tarefa -> {
-            emailService.enviarEmail(tarefa);
+            emailProducer.enviarEmail(tarefa);
             log.info("Email enviado para o usuario " + tarefa.getEmailUsuario());
-            tarefasService.alteraStatus(StatusNotificacaoEnum.NOTIFICADO,
+            tarefasService.alteraStatus(StatusNotificacaoEnum.AGUARDANDO,
                     tarefa.getId(),
                     token);
         });

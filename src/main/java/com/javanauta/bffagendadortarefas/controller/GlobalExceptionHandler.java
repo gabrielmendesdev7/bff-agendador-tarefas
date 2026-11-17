@@ -4,6 +4,7 @@ import com.javanauta.bffagendadortarefas.infrastructure.exceptions.IllegalArgume
 import com.javanauta.bffagendadortarefas.infrastructure.exceptions.ConflictException;
 import com.javanauta.bffagendadortarefas.infrastructure.exceptions.ResourceNotFoundException;
 import com.javanauta.bffagendadortarefas.infrastructure.exceptions.UnauthorizedException;
+import jakarta.servlet.http.HttpServletRequest;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.ControllerAdvice;
@@ -13,7 +14,8 @@ import org.springframework.web.bind.annotation.ExceptionHandler;
 public class GlobalExceptionHandler {
 
     @ExceptionHandler(ResourceNotFoundException.class)
-    public ResponseEntity<String> handleResourceNotFoundException(ResourceNotFoundException ex) {
+    public ResponseEntity<String> handleResourceNotFoundException(ResourceNotFoundException ex,
+                                                                  HttpServletRequest request) {
         return new ResponseEntity<>(ex.getMessage(), HttpStatus.NOT_FOUND);
     }
 
